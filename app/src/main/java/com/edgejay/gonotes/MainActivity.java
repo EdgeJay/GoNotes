@@ -9,6 +9,8 @@ import com.edgejay.gonotes.services.RecorderService;
 
 public class MainActivity extends AppCompatActivity {
 
+    public static View rootView = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -16,6 +18,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onLaunchRecorder(View v) {
+        // used by RecorderService for taking screenshots
+        rootView = getWindow().getDecorView().getRootView();
+
+        stopService(new Intent(this, RecorderService.class));
         startService(new Intent(this, RecorderService.class));
+    }
+
+    public void onCloseRecorder(View v) {
+        stopService(new Intent(this, RecorderService.class));
     }
 }
