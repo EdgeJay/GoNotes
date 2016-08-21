@@ -3,25 +3,23 @@ package com.edgejay.gonotes.services;
 import android.app.Service;
 import android.content.Intent;
 import android.content.res.Resources;
-import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.os.Environment;
 import android.os.IBinder;
 import android.support.v4.view.animation.FastOutSlowInInterpolator;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
 
-import com.edgejay.gonotes.MainActivity;
 import com.edgejay.gonotes.R;
+import com.edgejay.gonotes.views.HoverPanelView;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -30,12 +28,18 @@ public class RecorderService extends Service {
     private final static String TAG = "RecorderService";
     private final ScheduledExecutorService mScheduler = Executors.newScheduledThreadPool(1);
     private final int mMoveThreshold = 5;
+    private final float mHoverViewOrigSize = 64F;
+    private final float mHoverViewExpandScale = 1.2F;
+    private final int mHoverViewExpandTime = 150;
 
     private boolean mOpen = false;
     private WindowManager mWindowManager;
     private ImageView mHoverView;
     private Resources mRes;
     private String[] mPokemonNames;
+
+    // for expanded view
+    private HoverPanelView mHoverPanelView;
 
     public RecorderService() {
     }
@@ -55,9 +59,14 @@ public class RecorderService extends Service {
 
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
+        final int hoverViewSize = (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                mHoverViewOrigSize * mHoverViewExpandScale,
+                mRes.getDisplayMetrics());
+
         final WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
-                (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 128, mRes.getDisplayMetrics()),
-                (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 128, mRes.getDisplayMetrics()),
+                hoverViewSize,
+                hoverViewSize,
                 WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT);
@@ -66,7 +75,6 @@ public class RecorderService extends Service {
         layoutParams.y = 0;
 
         mHoverView = new ImageView(this);
-        //mHoverView.setBackgroundColor(Color.RED);
         mHoverView.setScaleType(ImageView.ScaleType.CENTER);
         mHoverView.setImageResource(R.mipmap.ic_pokeball);
         mHoverView.setOnTouchListener(new View.OnTouchListener() {
@@ -86,9 +94,9 @@ public class RecorderService extends Service {
 
                         mHoverView.animate().cancel();
                         mHoverView.animate()
-                                .scaleX(1.2F)
-                                .scaleY(1.2F)
-                                .setDuration(150)
+                                .scaleX(mHoverViewExpandScale)
+                                .scaleY(mHoverViewExpandScale)
+                                .setDuration(mHoverViewExpandTime)
                                 .setInterpolator(new FastOutSlowInInterpolator());
                         return true;
 
@@ -105,7 +113,7 @@ public class RecorderService extends Service {
                         mHoverView.animate()
                                 .scaleX(1.0F)
                                 .scaleY(1.0F)
-                                .setDuration(150)
+                                .setDuration(mHoverViewExpandTime)
                                 .setInterpolator(new FastOutSlowInInterpolator());
 
                         return true;
@@ -153,8 +161,28 @@ public class RecorderService extends Service {
     }
 
     private void toggleOpen() {
+        if (mOpen) {
+            if (mHoverPanelView != null) {
+                mWindowManager.removeView(mHoverPanelView);
+                mHoverPanelView = null;
+            }
+        }
+        else {
+            LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+            mHoverPanelView = (HoverPanelView) inflater.inflate(R.layout.layout_recorder_main, null);
+
+            final WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_PHONE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT);
+            layoutParams.gravity = Gravity.TOP | Gravity.LEFT;
+
+            mWindowManager.addView(mHoverPanelView, layoutParams);
+        }
+
         mOpen = !mOpen;
-        Log.d(TAG, "open: " + mOpen);
     }
 
     @Override
