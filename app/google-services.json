@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "515866944539",
+    "project_id": "firebase-gonotes"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:515866944539:android:b5188225dc7cf753",
+        "android_client_info": {
+          "package_name": "com.edgejay.gonotes"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "515866944539-fsu5ih9gkkgnudeihqb4ark0gtb3r0al.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.edgejay.gonotes",
+            "certificate_hash": "BBA67A38247243BA9A66A3343DB016469E8714DE"
+          }
+        },
+        {
+          "client_id": "515866944539-r30gooc9tgjjlbialkc31ro53eq9df38.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4KuDfALI1FGEnsorPAIgcXvcEVAn52Cw"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 1
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

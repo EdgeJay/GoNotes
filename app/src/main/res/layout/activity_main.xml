@@ -14,15 +14,25 @@
         android:id="@+id/launch_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
+        android:layout_marginTop="50dp"
+        android:layout_centerHorizontal="true"
         android:text="Launch Recorder"
         android:onClick="onLaunchRecorder"/>
 
     <Button
+        android:id="@+id/close_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
         android:layout_below="@id/launch_btn"
         android:text="Close Recorder"
         android:onClick="onCloseRecorder"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:layout_below="@id/close_btn"
+        android:text="Google Sign In"
+        android:onClick="onGoogleSignin"/>
 </RelativeLayout>

@@ -4,7 +4,6 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.PixelFormat;
-import android.os.Environment;
 import android.os.IBinder;
 import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.util.DisplayMetrics;
@@ -15,6 +14,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 
 import com.edgejay.gonotes.R;
@@ -39,7 +39,8 @@ public class RecorderService extends Service {
     private String[] mPokemonNames;
 
     // for expanded view
-    private HoverPanelView mHoverPanelView;
+    //private HoverPanelView mHoverPanelView;
+    private View mOptionsView;
 
     public RecorderService() {
     }
@@ -140,35 +141,47 @@ public class RecorderService extends Service {
 
     private void findCapturedPokemon() {
         // take screenshot
-        final String mPath = Environment.getExternalStorageDirectory().toString() + "/gonotes_screencap.jpg";
 
-        /*
-        try {
-            MainActivity.rootView.setDrawingCacheEnabled(true);
-            Bitmap bm = Bitmap.createBitmap(MainActivity.rootView.getDrawingCache());
-            MainActivity.rootView.setDrawingCacheEnabled(false);
-
-            File screenshotFile = new File(mPath);
-            FileOutputStream os = new FileOutputStream(screenshotFile);
-            bm.compress(Bitmap.CompressFormat.JPEG, 100, os);
-            os.flush();
-            os.close();
-        }
-        catch (Throwable e) {
-            e.printStackTrace();
-        }
-        */
     }
 
     private void toggleOpen() {
         if (mOpen) {
+
+            if (mOptionsView != null) {
+                mWindowManager.removeView(mOptionsView);
+                mOptionsView = null;
+            }
+
+            /*
             if (mHoverPanelView != null) {
                 mWindowManager.removeView(mHoverPanelView);
                 mHoverPanelView = null;
             }
+            */
         }
         else {
             LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+
+            mOptionsView = inflater.inflate(R.layout.layout_recorder_options, null);
+            final WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_PHONE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT);
+            layoutParams.gravity = Gravity.TOP | Gravity.LEFT;
+
+            mWindowManager.addView(mOptionsView, layoutParams);
+
+            ImageButton addEntryButton = (ImageButton) mOptionsView.findViewById(R.id.add_entry_button);
+            addEntryButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Log.d(TAG, "add entry!");
+                }
+            });
+
+            /*
             mHoverPanelView = (HoverPanelView) inflater.inflate(R.layout.layout_recorder_main, null);
 
             final WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
@@ -180,6 +193,7 @@ public class RecorderService extends Service {
             layoutParams.gravity = Gravity.TOP | Gravity.LEFT;
 
             mWindowManager.addView(mHoverPanelView, layoutParams);
+            */
         }
 
         mOpen = !mOpen;
@@ -191,6 +205,10 @@ public class RecorderService extends Service {
 
         if (mHoverView != null) {
             mWindowManager.removeView(mHoverView);
+        }
+
+        if (mOptionsView != null) {
+            mWindowManager.removeView(mOptionsView);
         }
     }
 }
