@@ -3,8 +3,14 @@ package com.edgejay.gonotes.services;
 import android.app.Service;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
+import android.graphics.Point;
+import android.media.ImageReader;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
 import android.os.IBinder;
+import android.support.annotation.Nullable;
 import android.support.v4.view.animation.FastOutSlowInInterpolator;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -24,19 +30,34 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ *
+ * How to take screenshot: http://binwaheed.blogspot.sg/2015/03/how-to-correctly-take-screenshot-using.html
+ */
 public class RecorderService extends Service {
+    public static final String MEDIA_PROJECTION_RESULT_CODE = "RecorderService.MEDIA_PROJECTION_RESULT_CODE";
+    public static final String MEDIA_PROJECTION_DATA = "RecorderService.MEDIA_PROJECTION_DATA";
     private final static String TAG = "RecorderService";
+
     private final ScheduledExecutorService mScheduler = Executors.newScheduledThreadPool(1);
+
     private final int mMoveThreshold = 5;
     private final float mHoverViewOrigSize = 64F;
     private final float mHoverViewExpandScale = 1.2F;
     private final int mHoverViewExpandTime = 150;
 
     private boolean mOpen = false;
+    private boolean mPaused = false;
     private WindowManager mWindowManager;
     private ImageView mHoverView;
     private Resources mRes;
     private String[] mPokemonNames;
+
+    private MediaProjectionManager mMediaProjectionManager = null;
+    private MediaProjection mMediaProjection = null;
+    private int mMediaProjectionResultCode;
+    private Intent mMediaProjectionData;
+    private ImageReader mImageReader;
 
     // for expanded view
     //private HoverPanelView mHoverPanelView;
@@ -52,18 +73,33 @@ public class RecorderService extends Service {
     }
 
     @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        mMediaProjectionResultCode = intent.getIntExtra(MEDIA_PROJECTION_RESULT_CODE, -1);
+        mMediaProjectionData = intent.getParcelableExtra(MEDIA_PROJECTION_DATA);
+
+        return START_STICKY;
+    }
+
+    @Override
     public void onCreate() {
         super.onCreate();
 
         mRes = getResources();
         mPokemonNames = mRes.getStringArray(R.array.pokemon_names);
 
+        // window manager for managing views drawn over other apps
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
-        final int hoverViewSize = (int) TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP,
-                mHoverViewOrigSize * mHoverViewExpandScale,
-                mRes.getDisplayMetrics());
+        // for capturing screen content
+        mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        mMediaProjection = mMediaProjectionManager.getMediaProjection(mMediaProjectionResultCode, mMediaProjectionData);
+
+        Point winSize = new Point();
+        mWindowManager.getDefaultDisplay().getSize(winSize);
+        mImageReader = ImageReader.newInstance(winSize.x, winSize.y, ImageFormat.RGB_565, 2);
+
+        // prepare to create and add "Pokeball" to screen
+        final int hoverViewSize = calculatePixelValue(mHoverViewOrigSize * mHoverViewExpandScale);
 
         final WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
                 hoverViewSize,
@@ -104,10 +140,10 @@ public class RecorderService extends Service {
                     case MotionEvent.ACTION_UP:
                         if (Math.abs(layoutParams.x - initialX) >= mMoveThreshold ||
                             Math.abs(layoutParams.y - initialY) >= mMoveThreshold) {
-                            Log.d(TAG, "moved");
+                            //Log.d(TAG, "moved");
                         }
                         else {
-                            toggleOpen();
+                            toggleOpen(layoutParams);
                         }
 
                         mHoverView.animate().cancel();
@@ -123,6 +159,10 @@ public class RecorderService extends Service {
                         layoutParams.x = initialX + (int) (event.getRawX() - initialTouchX);
                         layoutParams.y = initialY + (int) (event.getRawY() - initialTouchY);
                         mWindowManager.updateViewLayout(mHoverView, layoutParams);
+
+                        if (mOpen) {
+                            toggleOpen(null);
+                        }
                         return true;
                 }
                 return false;
@@ -144,7 +184,8 @@ public class RecorderService extends Service {
 
     }
 
-    private void toggleOpen() {
+    private void toggleOpen(@Nullable final WindowManager.LayoutParams layoutParams) {
+        // if already in "open" state
         if (mOpen) {
 
             if (mOptionsView != null) {
@@ -159,27 +200,42 @@ public class RecorderService extends Service {
             }
             */
         }
+        // if in "closed" state
         else {
-            LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+            if (layoutParams != null) {
+                LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
 
-            mOptionsView = inflater.inflate(R.layout.layout_recorder_options, null);
-            final WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.WRAP_CONTENT,
-                    WindowManager.LayoutParams.WRAP_CONTENT,
-                    WindowManager.LayoutParams.TYPE_PHONE,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                    PixelFormat.TRANSLUCENT);
-            layoutParams.gravity = Gravity.TOP | Gravity.LEFT;
+                final Point winSize = new Point();
+                mWindowManager.getDefaultDisplay().getSize(winSize);
 
-            mWindowManager.addView(mOptionsView, layoutParams);
+                // shift hover view to top right corner
+                layoutParams.x = winSize.x - calculatePixelValue(mHoverViewOrigSize + 10);
+                layoutParams.y = (winSize.y / 2) - calculatePixelValue(mHoverViewOrigSize / 2);
+                //mWindowManager.updateViewLayout(mHoverView, layoutParams);
+                mWindowManager.removeView(mHoverView);
 
-            ImageButton addEntryButton = (ImageButton) mOptionsView.findViewById(R.id.add_entry_button);
-            addEntryButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Log.d(TAG, "add entry!");
-                }
-            });
+                mOptionsView = inflater.inflate(R.layout.layout_recorder_options, null);
+                final WindowManager.LayoutParams optionsLayoutParams = new WindowManager.LayoutParams(
+                        WindowManager.LayoutParams.WRAP_CONTENT,
+                        WindowManager.LayoutParams.WRAP_CONTENT,
+                        WindowManager.LayoutParams.TYPE_PHONE,
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                        PixelFormat.TRANSLUCENT);
+                optionsLayoutParams.gravity = Gravity.TOP | Gravity.LEFT;
+                optionsLayoutParams.x = layoutParams.x - calculatePixelValue(110F);
+                optionsLayoutParams.y = layoutParams.y + calculatePixelValue(10F);
+
+                mWindowManager.addView(mOptionsView, optionsLayoutParams);
+                mWindowManager.addView(mHoverView, layoutParams);
+
+                ImageButton pauseButton = (ImageButton) mOptionsView.findViewById(R.id.pause_button);
+                pauseButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        togglePause((ImageButton) v);
+                    }
+                });
+            }
 
             /*
             mHoverPanelView = (HoverPanelView) inflater.inflate(R.layout.layout_recorder_main, null);
@@ -197,6 +253,29 @@ public class RecorderService extends Service {
         }
 
         mOpen = !mOpen;
+    }
+
+    private void togglePause(ImageButton pauseButton) {
+        if (mPaused) {
+            pauseButton.setImageResource(R.mipmap.ic_pause_circle_outline);
+        }
+        else {
+            pauseButton.setImageResource(R.mipmap.ic_pause_circle_fill);
+        }
+
+        mPaused = !mPaused;
+    }
+
+    /**
+     * Returns actual pixel value based on screen density
+     *
+     * @param value
+     * @return
+     */
+    private int calculatePixelValue(float value) {
+        return (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, value, mRes.getDisplayMetrics()
+        );
     }
 
     @Override

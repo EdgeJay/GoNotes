@@ -2,6 +2,8 @@ package com.edgejay.gonotes;
 
 import android.annotation.TargetApi;
 import android.content.Intent;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -20,10 +22,12 @@ import com.google.android.gms.common.api.GoogleApiClient;
 public class MainActivity extends AppCompatActivity
         implements GoogleApiClient.OnConnectionFailedListener {
 
-    public static View rootView = null;
     private static final String TAG = "MainActivity";
-    private static final int REQUEST_SIGN_IN = 1000;
-    private static final int REQUEST_OVERLAY = 2000;
+    private static final int REQUEST_SIGN_IN        = 1000;
+    private static final int REQUEST_OVERLAY        = 2000;
+    private static final int REQUEST_SCREEN_CAPTURE = 3000;
+
+    private MediaProjectionManager mMediaProjectionManager = null;
     private GoogleApiClient mGoogleApiClient;
 
     @Override
@@ -53,14 +57,25 @@ public class MainActivity extends AppCompatActivity
         }
         else if (requestCode == REQUEST_OVERLAY) {
             if (Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP_MR1 && Settings.canDrawOverlays(this)) {
-                launchRecorder();
+                canDoScreenCapture();
+            }
+            else {
+                //TODO display error
+            }
+        }
+        else if (requestCode == REQUEST_SCREEN_CAPTURE) {
+            if (resultCode == RESULT_OK) {
+                launchRecorder(resultCode, data);
+            }
+            else {
+                //TODO display error
             }
         }
     }
 
     public void onLaunchRecorder(View v) {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1) {
-            launchRecorder();
+            canDoScreenCapture();
         }
         // from API level 23 onwards, need to seek user permission to draw views on top of other apps
         else {
@@ -71,8 +86,9 @@ public class MainActivity extends AppCompatActivity
 
     @TargetApi(23)
     private void canDrawOverlays() {
+        // check if user granted app permission to draw over other apps
         if (Settings.canDrawOverlays(this)) {
-            launchRecorder();
+            canDoScreenCapture();
         }
         else {
             // request for permission
@@ -81,12 +97,20 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private void launchRecorder() {
-        // used by RecorderService for taking screenshots
-        rootView = getWindow().getDecorView().getRootView();
+    private void canDoScreenCapture() {
+        mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        startActivityForResult(mMediaProjectionManager.createScreenCaptureIntent(), REQUEST_SCREEN_CAPTURE);
+    }
 
-        stopService(new Intent(this, RecorderService.class));
-        startService(new Intent(this, RecorderService.class));
+    private void launchRecorder(int resultCode, Intent data) {
+        if (resultCode == RESULT_OK && data != null) {
+            stopService(new Intent(this, RecorderService.class));
+
+            Intent intent = new Intent(this, RecorderService.class);
+            intent.putExtra(RecorderService.MEDIA_PROJECTION_RESULT_CODE, resultCode);
+            intent.putExtra(RecorderService.MEDIA_PROJECTION_DATA, data);
+            startService(intent);
+        }
     }
 
     public void onCloseRecorder(View v) {

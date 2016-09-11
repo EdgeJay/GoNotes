@@ -7,10 +7,19 @@
     android:padding="10dp"
     android:background="@drawable/recorder_options_bg">
     <ImageButton
-        android:id="@+id/add_entry_button"
+        android:id="@+id/pause_button"
         android:layout_width="36dp"
         android:layout_height="36dp"
         android:scaleType="fitCenter"
-        android:src="@mipmap/ic_add_entry"
+        android:src="@mipmap/ic_pause_circle_outline"
         android:background="@android:color/transparent" />
+    <ImageButton
+        android:id="@+id/stop_button"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:scaleType="fitCenter"
+        android:src="@mipmap/ic_stop"
+        android:background="@android:color/transparent"
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="28dp" />
 </LinearLayout>
